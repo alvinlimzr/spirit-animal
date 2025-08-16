@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>The Forest of Self — Spirit Animal Quiz</title>
+<style>
+    :root{
+      --maxw:720px; --radius:14px; --ink:#222; --muted:#666; --brand:#6a7cff;
+      --border:#e7e7ee; --border-hover:#cfd2ff; --choice-bg:#fff; --choice-green:#e9f9ef;
+      --pill-bg:#f1f3ff; --pill-br:#e0e4ff;
+      --in-dur:.28s; --out-dur:.22s; --flash-dur:.24s; --ripple-dur:.45s;
+  
+      /* compact layout */
+      --pad:16px; --gap:12px;
+    }
+  
+    *{box-sizing:border-box}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      margin:0; background:#f7f7fb; color:var(--ink); line-height:1.5;
+    }
+    .wrap{max-width:var(--maxw); margin:0 auto; padding:var(--pad)}
+    header h1{margin:0 0 8px; font-size:clamp(1.6rem,2.5vw,2.2rem)}
+    header p{margin:0 0 10px; color:#555}
+  
+    /* ART banner — image above, centered, no backdrop/frame */
+    .art{
+  display:none;
+  margin:0 0 var(--gap);
+  justify-content:center;
+}
+.art.show{display:flex}
+.art img{
+  max-width:100%;
+  width:auto;
+  height:auto;
+  max-height:clamp(210px, 39vh, 360px); /* was 140 / 26vh / 240 → ~1.5× */
+  background:transparent;
+  box-shadow:none;
+  border-radius:0;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  -ms-interpolation-mode:nearest-neighbor;
+  transition:opacity .22s ease;
+  opacity:1;
+  display:block;
+}
+  
+    .card{
+      background:#fff; border-radius:var(--radius); box-shadow:0 6px 30px rgba(0,0,0,.08);
+      padding:14px; position:relative; overflow:hidden;
+    }
+    .progress{height:6px; background:#e9e9f4; border-radius:999px; overflow:hidden; margin:8px 0 16px}
+    .bar{height:100%; width:0%; background:var(--brand); transition:width .25s ease}
+    .qtitle{font-size:1.15rem; margin:0 0 12px}
+  
+    /* Scene fade */
+    .scene{opacity:0; transform:translateY(6px); animation:fadeIn var(--in-dur) ease forwards}
+    .fade-out{animation:fadeOut var(--out-dur) ease forwards}
+    @keyframes fadeIn{to{opacity:1; transform:none}}
+    @keyframes fadeOut{to{opacity:0; transform:translateY(6px)}}
+  
+    /* Choices (button-like rows) */
+    .choices{display:grid; gap:10px; margin:0; padding:0; list-style:none}
+    .choice{
+      position:relative; display:block; text-align:left; padding:12px; border:1px solid var(--border);
+      border-radius:10px; background:var(--choice-bg); cursor:pointer; user-select:none;
+      transition:border-color .15s, box-shadow .15s, transform .02s, background-color .2s;
+      outline:none; overflow:hidden;
+    }
+    .choice:hover{border-color:var(--border-hover)}
+    .choice:focus-visible{outline:2px solid var(--brand); outline-offset:2px}
+    .choice.selected{background-color:var(--choice-green)}
+    .choice.flash{background-color:var(--choice-green); transition:background-color var(--flash-dur) ease}
+  
+    /* Ripple click effect */
+    .ripple{
+      position:absolute; border-radius:999px; pointer-events:none; opacity:.25; background:#2ecc71;
+      transform:scale(0); animation:ripple var(--ripple-dur) ease-out forwards;
+    }
+    @keyframes ripple{to{transform:scale(12); opacity:0}}
+  
+    .nav{display:flex; gap:12px; justify-content:space-between; margin-top:12px; flex-wrap:wrap}
+    button{
+      appearance:none; border:0; border-radius:10px; padding:10px 14px; cursor:pointer;
+      background:var(--brand); color:#fff; font-weight:600;
+    }
+    button.secondary{background:#eef0ff; color:#3b3f80}
+    button:disabled{opacity:.5; cursor:not-allowed}
+    .muted{color:var(--muted); font-size:.95rem}
+  
+    .result h2{margin-top:0}
+    .traits{display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px}
+    .pill{padding:6px 10px; border-radius:999px; background:var(--pill-bg); border:1px solid var(--pill-br); font-size:.9rem}
+    .share{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+  
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      :root{--in-dur:.01s; --out-dur:.01s; --flash-dur:.01s; --ripple-dur:.01s}
+      .bar, .art img{transition:none}
+    }
+  
+    /* Extra squeeze on short screens */
+    @media (max-height: 740px){
+      header h1{font-size:clamp(1.4rem,2vw,1.9rem)}
+      .qtitle{font-size:1.05rem}
+      .muted{font-size:.9rem}
+      .art img{max-height:clamp(120px, 22vh, 220px)}
+      .card{padding:12px}
+      button{padding:9px 12px}
+    }
+  </style>
+  
+</head>
+<body>
+<header class="wrap" id="top">
+  <h1>Discover Your Spirit Animal</h1>
+  <p class="muted">10 quick choices in a cozy little story. Your path reveals the animal that walks beside you.</p>
+</header>
+
+<main class="wrap">
+  <!-- Pixel-art banner sits under the header and stays for questions/results -->
+  <figure class="art" id="artbox" aria-hidden="true">
+    <img id="artimg" alt="" loading="lazy" />
+  </figure>
+
+  <div class="card" id="app" aria-live="polite"></div>
+</main>
+
+<footer class="wrap" style="text-align:center;color:#777;font-size:.9rem">
+  <p>Made with ❤️ — share and compare with friends!</p>
+</footer>
+
+<script>
+/* ---------------------------
+   1) DATA
+   NOTE: We removed the old Q3 (River), so there are 8 questions total.
+   Intro uses art/intro.png. Each question has an img path.
+---------------------------- */
+const QUIZ = {
+  animals:{
+    Dog:{emoji:"🐶",title:"The Devoted Companion",traits:["Warm","Loyal","Uplifting","Steady"],best:["Wolf","Cat"],clash:["Snake","Tiger"],blurb:"You’re heart-first and reliable. You make people feel safe, seen, and supported.",img:"art/dog.png"},
+    Cat:{emoji:"🐱",title:"The Serene Independent",traits:["Curious","Composed","Discerning","Graceful"],best:["Owl","Fox"],clash:["Dog","Tiger"],blurb:"You move at your own pace, choosing depth and comfort over noise. Quiet confidence is your signature.",img:"art/cat.png"},
+    Dragon:{emoji:"🐉",title:"The Visionary Myth",traits:["Imaginative","Bold","Magnetic","Expansive"],best:["Fox","Tiger"],clash:["Snake","Owl"],blurb:"You dream big and pull others into possibility. You thrive on wonder, symbol, and spectacle.",img:"art/dragon.png"},
+    Wolf:{emoji:"🐺",title:"The Pack Guardian",traits:["Protective","Strategic","Community-minded","Dependable"],best:["Dog","Owl"],clash:["Fox","Snake"],blurb:"You read the terrain and watch the pack. Loyalty and foresight are how you lead.",img:"art/wolf.png"},
+    Fox:{emoji:"🦊",title:"The Clever Pathfinder",traits:["Adaptable","Witty","Inventive","Light-footed"],best:["Dragon","Cat"],clash:["Wolf","Dog"],blurb:"You find side doors and soft landings. Fast thinking and fun keep you moving.",img:"art/fox.png"},
+    Snake:{emoji:"🐍",title:"The Quiet Strategist",traits:["Perceptive","Focused","Transforming","Canny"],best:["Owl","Tiger"],clash:["Dog","Dragon"],blurb:"You conserve energy, strike with purpose, and embrace change when it matters.",img:"art/snake.png"},
+    Owl:{emoji:"🦉",title:"The Night Sage",traits:["Observant","Calm","Analytical","Insightful"],best:["Cat","Wolf"],clash:["Dragon","Fox"],blurb:"You notice what others miss. You value clarity, patience, and elegant solutions.",img:"art/owl.png"},
+    Tiger:{emoji:"🐅",title:"The Fearless Driver",traits:["Decisive","Independent","Ambitious","Brave"],best:["Dragon","Snake"],clash:["Dog","Cat"],blurb:"You move first and refuse to stall. Momentum and nerve are your natural state.",img:"art/tiger.png"}
+  },
+
+  /* Each question has one point per choice. Distribution is balanced:
+     Every animal appears exactly 4 times across all questions. */
+  questions:[
+    {
+      id:"q1", title:"Q1 — The Awakening",
+      text:"You open your eyes. The forest is quiet except for distant birdsong. What’s your first move?",
+      img:"art/q1.png", imgAlt:"Pixel art: a misty forest clearing at dawn.",
+      choices:[
+        {label:"Launch into the unknown — make something happen.", points:{Dragon:1}},   // Dragon (1)
+        {label:"Sit still, observe, and listen first.",            points:{Owl:1}},      // Owl (1)
+        {label:"Check supplies and get your bearings.",            points:{Wolf:1}},     // Wolf (1)
+        {label:"Call out — someone might be nearby.",              points:{Dog:1}}       // Dog (1)
+      ]
+    },
+
+    {
+      id:"q2", title:"Q2 — The Path",
+      text:"At a fork: one trail is sun-dappled and open; the other is narrow and shadowy. Your pick?",
+      img:"art/q2.png", imgAlt:"Pixel art: a forked trail, one sunny and one shadowy.",
+      choices:[
+        {label:"Open trail — clarity and connection.",             points:{Dog:1}},      // Dog (2)
+        {label:"Shadow trail — mystery tempts me.",                points:{Cat:1}},      // Cat (1)
+        {label:"No trail — I’ll thread the undergrowth.",          points:{Fox:1}},      // Fox (1)
+        {label:"I wait for a sign or pattern to emerge.",          points:{Owl:1}}       // Owl (2)
+      ]
+    },
+
+    {
+      id:"q3", title:"Q3 — The Stranger",
+      text:"A traveler with a heavy pack asks for help. What do you do?",
+      img:"art/q4.png", imgAlt:"Pixel art: a traveler with a big pack on a woodland path.",
+      choices:[
+        {label:"Carry some weight — we go together.",              points:{Dog:1}},      // Dog (3)
+        {label:"Offer better directions and strategy.",            points:{Owl:1}},      // Owl (3)
+        {label:"Wish them well — my path is my own.",              points:{Tiger:1}},    // Tiger (1)
+        {label:"Walk alongside awhile — swap stories.",            points:{Wolf:1}}      // Wolf (2)
+      ]
+    },
+
+    {
+      id:"q4", title:"Q4 — The Storm",
+      text:"Wind howls and rain needles the leaves. Your move?",
+      img:"art/q5.png", imgAlt:"Pixel art: a storm rolling over the forest.",
+      choices:[
+        {label:"Hole up somewhere dry and safe.",                  points:{Cat:1}},      // Cat (2)
+        {label:"Push through — storms pass if you keep going.",    points:{Tiger:1}},    // Tiger (2)
+        {label:"Climb high to watch the spectacle.",               points:{Owl:1}},      // Owl (4)
+        {label:"Dance in it — feel the power.",                    points:{Dragon:1}}    // Dragon (2)
+      ]
+    },
+
+    {
+      id:"q5", title:"Q5 — The Clearing",
+      text:"You reach a meadow of wildflowers swaying in light. What’s your instinct?",
+      img:"art/q6.png", imgAlt:"Pixel art: a meadow of colorful wildflowers.",
+      choices:[
+        {label:"Curl up and soak in the warmth.",                  points:{Cat:1}},      // Cat (3)
+        {label:"Forage smartly — something useful must be here.",  points:{Fox:1}},      // Fox (2)
+        {label:"Sketch symbols and dream up ideas.",               points:{Dragon:1}},   // Dragon (3)
+        {label:"Keep moving — destination matters.",               points:{Snake:1}}     // Snake (1)  (moved from Tiger to balance later)
+      ]
+    },
+
+    {
+      id:"q6", title:"Q6 — The Wall",
+      text:"A sheer rock wall blocks the way. How do you handle it?",
+      img:"art/q7.png", imgAlt:"Pixel art: a sheer rock wall with hidden ledges.",
+      choices:[
+        {label:"Scale it — test my edge.",                         points:{Dragon:1}},   // Dragon (4)
+        {label:"Go around — there’s always another route.",        points:{Fox:1}},      // Fox (3)
+        {label:"Study it — there’s a subtle path somewhere.",      points:{Snake:1}},    // Snake (2)
+        {label:"Wait — timing and patience will open something.",  points:{Dog:1}}       // Dog (4)
+      ]
+    },
+
+    {
+      id:"q7", title:"Q7 — The Campfire",
+      text:"Night falls. Your fire glows. A figure asks to share the warmth. What do you do?",
+      img:"art/q8.png", imgAlt:"Pixel art: a cozy campfire at night.",
+      choices:[
+        {label:"Welcome them — share watch and food.",             points:{Wolf:1}},     // Wolf (3)
+        {label:"Observe and ask careful questions first.",         points:{Cat:1}},      // Cat (4)
+        {label:"Share provisions, keep my counsel.",               points:{Snake:1}},    // Snake (3)
+        {label:"Decline — the night is mine.",                     points:{Fox:1}}       // Fox (4)
+      ]
+    },
+
+    {
+      id:"q8", title:"Q8 — The Threshold",
+      text:"At the forest’s edge stand four thresholds. Which calls you?",
+      img:"art/q9.png", imgAlt:"Pixel art: four stylized thresholds.",
+      choices:[
+        {label:"A crystal arch — beauty and wonder.",              points:{Dragon:1}},   // Dragon now 4
+        {label:"A steel gate — strength and discipline.",          points:{Tiger:1}},    // Tiger (3→4)
+        {label:"A carved wooden door — kin and hearth.",           points:{Wolf:1}},     // Wolf (4)
+        {label:"A path of dusk — into the unknown.",               points:{Snake:1}}     // Snake (4)
+      ]
+    }
+  ]
+};
+
+
+/* ---------------------------
+   2) STATE (answers only; scoring computed at the end)
+---------------------------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const app = $("#app");
+const artBox = $("#artbox");
+const artImg = $("#artimg");
+const headerEl = $("#top");
+let current = 0;
+const answers = []; // { qid, choiceIndex, order }
+let orderCounter = 0;
+
+/* Update tagline to reflect current count */
+const tag = document.querySelector('header p.muted');
+if (tag) tag.textContent = `${QUIZ.questions.length} quick choices in a cozy little story. Your path reveals the animal that walks beside you.`;
+
+/* ---------------------------
+   3) AUDIO (tiny click)
+---------------------------- */
+let audioCtx;
+function clickSound(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(680, audioCtx.currentTime);
+    g.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.13);
+  }catch(e){}
+}
+
+/* ---------------------------
+   4) RENDER HELPERS
+---------------------------- */
+function progressPct(i){ return Math.round((i / QUIZ.questions.length) * 100); }
+
+/* ART: crossfade image */
+function setArt(src, alt=""){
+  if (!src){
+    artBox.classList.remove("show");
+    artBox.setAttribute("aria-hidden","true");
+    artImg.removeAttribute("src");
+    return;
+  }
+  artBox.classList.add("show");
+  artBox.removeAttribute("aria-hidden");
+
+  const hadSrc = !!artImg.getAttribute("src");
+  const swap = () => {
+    artImg.src = src;
+    artImg.alt = alt;
+    requestAnimationFrame(()=>{ artImg.style.opacity = "1"; });
+  };
+  if (hadSrc){
+    artImg.addEventListener("transitionend", function handler(){
+      artImg.removeEventListener("transitionend", handler);
+      swap();
+    }, { once:true });
+    artImg.style.opacity = "0";
+  } else {
+    swap();
+  }
+}
+
+function renderIntro(){
+  // Show intro image and keep header visible
+  headerEl.style.display = "";
+  setArt("art/intro.png","Pixel art: an inviting forest intro scene.");
+
+  app.innerHTML = `
+    <div class="progress" aria-hidden="true"><div class="bar" style="width:0%"></div></div>
+    <div class="scene">
+      <p><strong>Welcome!</strong> You wake up in a mysterious forest. Eight moments will shape your path. Your choices will reveal the spirit animal that walks beside you.</p>
+      <div class="nav">
+        <button id="start">Start Quiz</button>
+        <button class="secondary" id="how">How it works</button>
+      </div>
+      <p class="muted" id="howtxt" hidden>
+        Click a choice and we’ll glide to the next scene. You can always go back with the Previous button.
+      </p>
+    </div>
+  `;
+  $("#start").onclick = () => {
+    // Hide the header for the rest of the quiz (only images + questions)
+    headerEl.style.display = "none";
+    renderQuestion(0, true);
+  };
+  $("#how").onclick = () => { const el = $("#howtxt"); el.hidden = !el.hidden; };
+}
+
+function renderQuestion(i, first=false){
+  current = i;
+  const q = QUIZ.questions[i];
+  const barPct = progressPct(i);
+  const prev = answers.find(a => a.qid === q.id);
+  const prevChoiceIndex = prev ? prev.choiceIndex : null;
+
+  // Hide the outside banner (we're putting art inside the card now)
+  setArt(null);
+
+  const html = `
+    <div class="scene">
+      <!-- Image inside the card -->
+      <figure class="art show" aria-hidden="false">
+        <img src="${q.img}" alt="${q.imgAlt || ""}" />
+      </figure>
+
+      <!-- Progress bar -->
+      <div class="progress" role="progressbar" aria-label="Progress"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="${barPct}">
+        <div class="bar" style="width:${barPct}%"></div>
+      </div>
+
+      <p class="muted">${q.title}</p>
+      <h2 class="qtitle">${q.text}</h2>
+      <ul class="choices" id="choices" role="listbox" aria-label="Answers">
+        ${q.choices.map((c, idx) => `
+          <li class="choice ${prevChoiceIndex===idx?'selected':''}" role="option" tabindex="0"
+              data-index="${idx}" aria-selected="${prevChoiceIndex===idx?'true':'false'}">
+            ${escapeHtml(c.label)}
+          </li>
+        `).join("")}
+      </ul>
+      <p class="muted" id="hint">Tip: Enter/Space to choose. We’ll auto-advance. Use Previous to change your answer.</p>
+      <div class="nav">
+        <button type="button" class="secondary" id="back" ${i===0?'disabled':''}>Previous</button>
+        <span></span>
+      </div>
+    </div>
+  `;
+
+  const setup = () => {
+    $("#back").onclick = () => renderQuestion(current - 1);
+
+    const list = $("#choices");
+    list.addEventListener("click", (e) => {
+      const li = e.target.closest(".choice"); if (!li) return;
+      chooseWithEffects(li, e);
+    });
+    list.addEventListener("keydown", (e) => {
+      const li = e.target.closest(".choice"); if (!li) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); chooseWithEffects(li, e); }
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const all = [...list.querySelectorAll(".choice")];
+        const idx = all.indexOf(li);
+        const next = e.key === "ArrowDown" ? (idx + 1) % all.length : (idx - 1 + all.length) % all.length;
+        all[next].focus();
+      }
+    });
+
+    const focusTarget = prevChoiceIndex != null
+      ? $("#choices .choice.selected") || $("#choices .choice")
+      : $("#choices .choice");
+    if (focusTarget) focusTarget.focus();
+  };
+
+  if (first) { app.innerHTML = html; setup(); }
+  else {
+    const scene = $(".scene", app) || app.firstElementChild;
+    if (!scene){ app.innerHTML = html; setup(); }
+    else {
+      scene.classList.add("fade-out");
+      scene.addEventListener("animationend", () => { app.innerHTML = html; setup(); }, { once: true });
+    }
+  }
+}
+
+
+function chooseWithEffects(li, evt){
+  const choiceIndex = parseInt(li.dataset.index,10);
+
+  // ripple
+  const rect = li.getBoundingClientRect();
+  const x = (evt.clientX || (rect.left + rect.width/2)) - rect.left;
+  const y = (evt.clientY || (rect.top + rect.height/2)) - rect.top;
+  const ripple = document.createElement("span");
+  ripple.className = "ripple";
+  ripple.style.left = (x-6)+"px";
+  ripple.style.top  = (y-6)+"px";
+  ripple.style.width = ripple.style.height = "12px";
+  li.appendChild(ripple);
+  ripple.addEventListener("animationend", () => ripple.remove(), { once:true });
+
+  // flash + sound
+  li.classList.add("flash");
+  clickSound();
+
+  // save/update answer (no scoring yet)
+  saveAnswer(current, choiceIndex);
+
+  // next
+  setTimeout(() => {
+    if (current < QUIZ.questions.length-1) {
+      renderQuestion(current+1);
+    } else {
+      renderResult();
+    }
+  }, 240);
+}
+
+function saveAnswer(qIndex, choiceIndex){
+  const q = QUIZ.questions[qIndex];
+  const existingIdx = answers.findIndex(a => a.qid === q.id);
+  if (existingIdx !== -1){
+    answers[existingIdx].choiceIndex = choiceIndex;
+    answers[existingIdx].order = ++orderCounter;
+  } else {
+    answers.push({ qid:q.id, choiceIndex, order: ++orderCounter });
+  }
+}
+
+/* ---------------------------
+   5) SCORING (computed once at the end)
+---------------------------- */
+function computeScores(){
+  const scores = {}, latest = {};
+  Object.keys(QUIZ.animals).forEach(a => { scores[a]=0; latest[a]=0; });
+
+  for (const ans of answers){
+    const q = QUIZ.questions.find(qq => qq.id === ans.qid);
+    if (!q) continue;
+    const pts = q.choices[ans.choiceIndex]?.points || {};
+    for (const [animal, n] of Object.entries(pts)){
+      if (!(animal in scores)) continue;
+      scores[animal] += n;
+      latest[animal] = Math.max(latest[animal], ans.order);
+    }
+  }
+  return { scores, latest };
+}
+
+function computeWinner(){
+  const { scores, latest } = computeScores();
+  const entries = Object.entries(scores);
+  const max = Math.max(...entries.map(([,v])=>v), 0);
+  const tied = entries.filter(([,v])=>v===max).map(([k])=>k);
+  if (tied.length===1) return { winner: tied[0], scores };
+  let best = tied[0], bestOrder = latest[best] || 0;
+  for (const a of tied){
+    const ord = latest[a] || 0;
+    if (ord > bestOrder){ best = a; bestOrder = ord; }
+  }
+  if (max === 0) return { winner: "Owl", scores };
+  return { winner: best, scores };
+}
+
+/* ---------------------------
+   6) RESULTS
+---------------------------- */
+function renderResult(){
+  const { winner, scores } = computeWinner();
+  const data = QUIZ.animals[winner];
+
+  // Show an animal-specific banner if present
+  setArt(data.img || null, `${winner} pixel art`);
+
+  app.innerHTML = `
+    <div class="progress" aria-hidden="true"><div class="bar" style="width:100%"></div></div>
+    <div class="scene">
+      <div class="result">
+        <h2>${data.emoji} ${data.title}</h2>
+        <p class="muted" style="margin-top:-6px">${winner}</p>
+        <p>${data.blurb}</p>
+        <div class="traits">${data.traits.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join("")}</div>
+        <p><strong>Most compatible:</strong> ${formatAnimalList(data.best)}<br/>
+           <strong>Might clash with:</strong> ${formatAnimalList(data.clash)}</p>
+        <details>
+          <summary class="muted">See how points shook out</summary>
+          <p class="muted">${Object.entries(scores).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${QUIZ.animals[k].emoji} ${k}: ${v}`).join(" · ") || "No answers recorded."}</p>
+        </details>
+        <div class="share">
+          <button id="copy">Copy share text</button>
+          <button id="retake" class="secondary">Retake</button>
+        </div>
+      </div>
+    </div>
+  `;
+  $("#copy").onclick = () => {
+    const share = `I’m a ${winner} ${data.emoji}! What’s your spirit animal?`;
+    navigator.clipboard.writeText(share).then(()=>alert("Copied! Paste it anywhere to share."),
+      ()=>alert("Couldn’t copy automatically. You can select and copy this:\n\n"+share));
+  };
+  $("#retake").onclick = () => {
+    answers.length = 0; orderCounter = 0;
+    renderIntro();                 // show intro again (with header and intro art)
+    window.scrollTo({ top:0, behavior:'smooth' });
+  };
+}
+
+/* ---------------------------
+   7) UTIL + START
+---------------------------- */
+function formatAnimalList(arr){ return arr.map(a=>`${QUIZ.animals[a].emoji} ${a}`).join(", "); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+
+renderIntro();
+</script>
+</body>
+</html>
